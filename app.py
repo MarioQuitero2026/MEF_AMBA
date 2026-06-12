@@ -377,23 +377,53 @@ for _df in [df_fin, df_c, df_cap]:
 # ─────────────────────────────────────────────────────────────────────
 # KPIs
 # ─────────────────────────────────────────────────────────────────────
-st.subheader("Indicadores Clave")
-c1, c2, c3, c4, c5, c6 = st.columns(6)
+st.markdown(f"<div class='idom-section'>Indicadores Clave</div>", unsafe_allow_html=True)
+
+tir_p = res.get('tir_proyecto', 0) or 0
+tir_e = res.get('tir_equity',   0) or 0
+vpn_fcfe_val = res.get('vpn_equity', 0) or 0
+vpn_fcff_val = res.get('vpn_proyecto', 0) or 0
+
+# Semáforo VPN FCFE: verde si ≈ 0, amarillo si pequeño, rojo si grande
+vpn_fcfe_abs = abs(vpn_fcfe_val)
+if vpn_fcfe_abs < 1_000:          # < USD 1,000 → prácticamente cero
+    fcfe_color_class = ""
+    fcfe_delta = "≈ 0  ✓  Ke satisfecha"
+elif vpn_fcfe_abs < 1_000_000:    # < 1M → aceptable
+    fcfe_color_class = "metric-card-cyan"
+    fcfe_delta = f"{'↑' if vpn_fcfe_val > 0 else '↓'} USD {vpn_fcfe_val/1e6:.3f}M vs 0"
+else:                              # > 1M → revisar
+    fcfe_color_class = "metric-card-rojo"
+    fcfe_delta = f"{'↑' if vpn_fcfe_val > 0 else '↓'} USD {vpn_fcfe_val/1e6:.2f}M vs 0"
+
+c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
 with c1:
-    metric_card("RCOP (VPN)", f"USD {res['rcop_vpn']/1e6:.0f}M")
+    metric_card("RCOP (VPN)", f"USD {res['rcop_vpn']/1e6:.0f}M",
+                "Variable de licitación")
 with c2:
-    tir_p = res.get('tir_proyecto', 0) or 0
-    metric_card("TIR Proyecto", f"{tir_p:.2%}")
+    st.markdown(f"""
+    <div class="metric-card {fcfe_color_class}">
+        <div class="label">VPN FCFE</div>
+        <div class="value">USD {vpn_fcfe_val/1e6:.2f}M</div>
+        <div class="delta">{fcfe_delta}</div>
+    </div>""", unsafe_allow_html=True)
 with c3:
-    tir_e = res.get('tir_equity', 0) or 0
-    metric_card("TIR Equity", f"{tir_e:.2%}")
+    metric_card("VPN FCFF", f"USD {vpn_fcff_val/1e6:.1f}M",
+                f"Tasa: WACC {res['wacc_anual']:.2%}")
 with c4:
-    metric_card("WACC", f"{res['wacc_anual']:.2%}", f"Ke: {res['ke_anual']:.2%}")
+    metric_card("TIR Equity", f"{tir_e:.2%}",
+                f"Ke objetivo: {res['ke_anual']:.2%}")
 with c5:
-    metric_card("VPN FCFF", f"USD {res['vpn_proyecto']/1e6:.1f}M")
+    metric_card("TIR Proyecto", f"{tir_p:.2%}",
+                f"WACC: {res['wacc_anual']:.2%}")
 with c6:
-    metric_card("Deuda Máx T1+T2",
-                f"USD {(res['deuda_max_t1']+res['deuda_max_t2'])/1e6:.0f}M")
+    metric_card("WACC", f"{res['wacc_anual']:.2%}",
+                f"Ke: {res['ke_anual']:.2%}")
+with c7:
+    deuda_total = res['deuda_max_t1'] + res['deuda_max_t2']
+    metric_card("Deuda T1+T2",
+                f"USD {deuda_total/1e6:.0f}M",
+                f"{pct_deuda:.0%} del CAPEX")
 
 st.divider()
 
