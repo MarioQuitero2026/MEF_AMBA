@@ -155,25 +155,13 @@ def calcular_financiacion(
     saldo_final_t1   = saldo_t1[-1]
     saldo_final_t2   = saldo_t2[-1]
 
-    # Recalcular impuesto a las ganancias con el escudo fiscal real
-    from flujos import calcular_impuestos
-    df_imp2 = calcular_impuestos(
-        ebit=df_cfdas["ebit"].values,
-        intereses=intereses_total,
-        flujos_dcb_entradas=df_cfdas["ingresos"].values + desembolso_total,
-        flujos_dcb_salidas=df_cfdas["capex_con_iva"].values + servicio_total,
-        iva_capex_periodo=df_cfdas["iva_capex"].values,
-        iva_recuperado=df_cfdas["iva_capex"].values,
-        p=p,
-        tl=tl,
-    )
+    # Recalcular CFDAS/FCFF con los intereses REALES para el escudo fiscal
+    df_cfdas_real = calcular_cfdas(rcop_vpn, p, tl, intereses_reales=intereses_total)
 
-    imp_ganancias_real = df_imp2["impuesto_ganancias_neto"].values
-    imp_dcb_real       = df_imp2["impuesto_dcb"].values
-    efecto_iva         = df_cfdas["iva_capex"].values   # IVA pagado en CAPEX
-
-    # FCFE = FCFF + Desembolso Deuda - Servicio Deuda - Impuestos reales
-    fcff = df_cfdas["fcff"].values
+    fcff = df_cfdas_real["fcff"].values
+    imp_ganancias_real = df_cfdas_real["imp_ganancias"].values
+    imp_dcb_real       = df_cfdas_real["imp_dcb"].values
+    efecto_iva         = df_cfdas_real["iva_capex"].values
     fcfe = (fcff
             + desembolso_total
             - servicio_total

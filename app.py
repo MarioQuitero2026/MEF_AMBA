@@ -74,7 +74,7 @@ rigi          = st.sidebar.toggle("CON RIGI",                    value=True)
 cap_global    = st.sidebar.toggle("CAPEX Global (Curva S)",      value=True)
 inf_rcop      = st.sidebar.toggle("Indexar RCOP a IPC",          value=True)
 capitalizar   = st.sidebar.toggle("Capitalizar intereses",       value=True)
-beta_fija_tog = st.sidebar.toggle("Beta fija (sin Hamada)",      value=False)
+beta_fija_tog = st.sidebar.toggle("Beta fija (sin Hamada)",      value=True)
 
 st.sidebar.markdown("### Estructura de Capital")
 pct_deuda = st.sidebar.slider("% Deuda", 0.0, 0.90, 0.80, step=0.05,

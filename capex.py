@@ -14,39 +14,36 @@ from timeline import build_timeline, periodo_de_fecha
 
 def _distribuir_capex_lote(
     lote: LoteConfig,
-    capex_lote_usd: float,
+    capex_neto_usd: float,
     tl: pd.DataFrame,
-    curva_s: bool = False,
-    capex_total_usd: float = 0.0,
+    factor_ipc: np.ndarray,
 ) -> np.ndarray:
     """
-    Distribuye el CAPEX de un lote en su ventana de construcción.
-    Si curva_s=False: distribución uniforme dentro del período de construcción.
-    Si curva_s=True: distribución por curva S (pct_curva_s del CAPEX global).
-    Retorna array de longitud len(tl) con el CAPEX mensual del lote.
+    Distribuye el CAPEX de un lote replicando la lógica exacta del Excel:
+      capex_nominal[t] = (pct_curva_s × CAPEX_NETO / duración) × factor_ipc[t]
+
+    capex_neto_usd: CAPEX total sin aportes del Estado (748.65M con RIGI).
+    factor_ipc: array del Factor Indexación IPC Mensual del timeline (con lag).
     """
     n = len(tl)
     capex_vec = np.zeros(n)
 
-    if lote.duracion_construccion == 0 or capex_lote_usd == 0:
+    if lote.duracion_construccion == 0 or lote.pct_curva_s == 0:
         return capex_vec
 
     inicio = lote.inicio_construccion
     fin = inicio + relativedelta(months=lote.duracion_construccion)
-
     mask = (tl["bop"] >= inicio) & (tl["bop"] < fin)
     periodos_activos = tl.loc[mask, "periodo"].values
 
     if len(periodos_activos) == 0:
         return capex_vec
 
-    if curva_s:
-        # Distribución proporcional al pct_curva_s dentro del período
-        monto = lote.pct_curva_s * capex_total_usd
-        capex_vec[periodos_activos] = monto / len(periodos_activos)
-    else:
-        # Distribución uniforme
-        capex_vec[periodos_activos] = capex_lote_usd / len(periodos_activos)
+    # Cuota base (sin IPC): pct × CAPEX_NETO / duración meses
+    cuota_base = lote.pct_curva_s * capex_neto_usd / lote.duracion_construccion
+
+    for t in periodos_activos:
+        capex_vec[t] = cuota_base * factor_ipc[t]
 
     return capex_vec
 
@@ -65,33 +62,47 @@ def calcular_capex(
 
     n = len(tl)
     rigi = p.controles.rigi
-    capex_global = p.controles.capex_global
-    capex_total = p.capex.capex_total(rigi)
+    # CAPEX neto = CAPEX total - aporte financiero - aporte especie
+    # Esta es la base que usa el Excel para distribuir por lote con Curva S
+    capex_neto = p.capex.capex_total(rigi) - p.capex.aporte_financiero - p.capex.aporte_especie
+    factor_ipc = tl["factor_index_ipc_m"].values
     iva_bienes = p.tributos.iva_bienes_cap(rigi)
 
     df = tl[["periodo", "bop", "eop", "anio", "factor_index_ipc_m",
              "factor_deflactor_ipc_m"]].copy()
 
-    # ── CAPEX por lote ──────────────────────────────────────────────────
+    # ── CAPEX por lote (Curva S indexada por IPC) + Garantías ───────────
+    # Prima garantía habilitación = CAPEX_NETO × 10% × 0.8% / 12
+    # Prima garantía anticipo = aporte_financiero × 0.8% / 12
+    # Ambas se aplican durante la ventana de construcción de cada lote × factor_ipc[t]
+    prima_base_hab  = capex_neto * p.capex.pct_garantia_habilitacion * p.capex.prima_anual_carta_credito / 12
+    prima_base_anti = p.capex.valor_garantia_anticipo * p.capex.prima_anual_carta_credito / 12
+
     for etapa, lotes in [("e1", LOTES_E1), ("e2", LOTES_E2)]:
         total_etapa = np.zeros(n)
         for i, lote in enumerate(lotes, 1):
-            capex_lote = lote.pct_capex * capex_total
-            vec = _distribuir_capex_lote(
-                lote, capex_lote, tl,
-                curva_s=capex_global,
-                capex_total_usd=capex_total,
-            )
+            vec_construccion = _distribuir_capex_lote(lote, capex_neto, tl, factor_ipc)
+
+            # Garantías: mismo período de construcción, misma indexación IPC
+            inicio = lote.inicio_construccion
+            fin = inicio + relativedelta(months=lote.duracion_construccion)
+            mask = (tl["bop"] >= inicio) & (tl["bop"] < fin)
+            periodos_activos = tl.loc[mask, "periodo"].values
+
+            vec_garantias = np.zeros(n)
+            for t in periodos_activos:
+                vec_garantias[t] = (prima_base_hab + prima_base_anti) * factor_ipc[t]
+
+            vec = vec_construccion + vec_garantias
             col = f"capex_{etapa}_l{i}"
             df[col] = vec
             total_etapa += vec
-
-        # Supervisión y fees (% del CAPEX)
-        supervision = total_etapa * p.capex.tasa_supervision
-        df[f"supervision_{etapa}"] = supervision
-        df[f"capex_total_{etapa}"] = total_etapa + supervision
+        df[f"capex_total_{etapa}"] = total_etapa
 
     df["capex_total_bruto"] = df["capex_total_e1"] + df["capex_total_e2"]
+
+    # Supervisión (tratada por separado, fuera del FCFF principal)
+    df["supervision"] = df["capex_total_bruto"] * p.capex.tasa_supervision
 
     # ── IVA sobre CAPEX ──────────────────────────────────────────────────
     df["iva_capex"] = df["capex_total_bruto"] * p.capex.pct_iva_capex * iva_bienes
@@ -110,7 +121,7 @@ def calcular_capex(
 
     # ── Garantías ────────────────────────────────────────────────────────
     # Garantía de habilitación comercial (prima anual sobre % del CAPEX)
-    garantia_base = capex_total * p.capex.pct_garantia_habilitacion
+    garantia_base = capex_neto * p.capex.pct_garantia_habilitacion
     prima_mensual = garantia_base * p.capex.prima_anual_carta_credito / 12
     # Activa durante construcción E1 + E2
     mask_construccion = tl["en_construccion_e1"] | tl["en_construccion_e2"]
@@ -121,24 +132,32 @@ def calcular_capex(
     df["garantia_anticipo"] = np.where(mask_construccion, prima_anticipo, 0.0)
 
     # ── Depreciación lineal por lote ─────────────────────────────────────
-    vida_util = (p.capex.capex_total_rigi  # dummy para seleccionar vida_util
-                 if rigi else p.capex.capex_total_sin_rigi)
-
+    # El Excel deprecia el CAPEX NOMINAL TOTAL de cada lote
+    # (suma de cuotas con IPC durante la construcción / vida útil en meses)
     dep_e1 = np.zeros(n)
     dep_e2 = np.zeros(n)
 
-    for etapa_lotes, dep_vec, lotes in [
-        (LOTES_E1, dep_e1, LOTES_E1),
-        (LOTES_E2, dep_e2, LOTES_E2),
-    ]:
-        for i, lote in enumerate(lotes, 1):
-            capex_lote = lote.pct_capex * capex_total
+    for dep_vec, lotes in [(dep_e1, LOTES_E1), (dep_e2, LOTES_E2)]:
+        for lote in lotes:
+            if lote.duracion_construccion == 0 or lote.pct_curva_s == 0:
+                continue
+
+            # CAPEX nominal total del lote = suma de cuotas durante construcción
+            cuota_base = lote.pct_curva_s * capex_neto / lote.duracion_construccion
+            inicio_c = lote.inicio_construccion
+            fin_c = inicio_c + relativedelta(months=lote.duracion_construccion)
+            mask_c = (tl["bop"] >= inicio_c) & (tl["bop"] < fin_c)
+            periodos_c = tl.loc[mask_c, "periodo"].values
+            capex_nominal_total = sum(cuota_base * factor_ipc[t] for t in periodos_c)
+
             vida_meses = lote.vida_util_rigi * 12 if rigi else lote.vida_util_sin_rigi * 12
             if vida_meses == 0:
                 continue
-            dep_mensual = capex_lote / vida_meses
-            # Depreciación comienza al finalizar la construcción del lote
-            inicio_dep = lote.inicio_construccion + relativedelta(months=lote.duracion_construccion)
+
+            dep_mensual = capex_nominal_total / vida_meses
+
+            # Depreciación comienza al finalizar la construcción
+            inicio_dep = fin_c
             fin_dep = inicio_dep + relativedelta(months=vida_meses)
             mask_dep = (tl["bop"] >= inicio_dep) & (tl["bop"] < fin_dep)
             dep_vec[tl.loc[mask_dep, "periodo"].values] += dep_mensual

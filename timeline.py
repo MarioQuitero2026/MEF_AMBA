@@ -41,9 +41,13 @@ def build_timeline(p: Params = DEFAULT_PARAMS) -> pd.DataFrame:
 
     df = pd.DataFrame(registros)
 
-    # Factor de indexación acumulado (base = período 0 = 1.0)
-    df["factor_index_ipc_m"] = (1 + df["ipc_em"]).cumprod()
-    df.loc[0, "factor_index_ipc_m"] = 1.0
+    # Factor de indexación acumulado — replica el lag del Excel:
+    # t=0 → 1.0, t=1 → 1.0, t=2 → (1+ipc_em)^1, t=N → (1+ipc_em)^(N-1)
+    ipc_em_vals = df["ipc_em"].values
+    factor = np.ones(n)
+    for t in range(2, n):
+        factor[t] = factor[t - 1] * (1 + ipc_em_vals[t - 1])
+    df["factor_index_ipc_m"] = factor
 
     # Factor deflactor (inverso del index)
     df["factor_deflactor_ipc_m"] = 1.0 / df["factor_index_ipc_m"]
