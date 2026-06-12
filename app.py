@@ -77,20 +77,29 @@ capitalizar   = st.sidebar.toggle("Capitalizar intereses",       value=True)
 beta_fija_tog = st.sidebar.toggle("Beta fija (sin Hamada)",      value=True)
 
 st.sidebar.markdown("### Estructura de Capital")
-pct_deuda = st.sidebar.slider("% Deuda", 0.0, 0.90, 0.80, step=0.05,
-                               format="%.0f%%",
+pct_deuda_pct = st.sidebar.slider("% Deuda", 0, 90, 80, step=5,
+                               format="%d%%",
                                help="Proporción de deuda sobre CAPEX total")
+pct_deuda = pct_deuda_pct / 100
 
 st.sidebar.markdown("### Costo de Capital")
-kd_anual = st.sidebar.slider("Kd (costo deuda nominal EA)", 0.06, 0.20, 0.12,
-                               step=0.005, format="%.1f%%")
-rf       = st.sidebar.slider("Tasa libre de riesgo (RF)", 0.01, 0.06, 0.0286,
-                               step=0.002, format="%.2f%%")
-rp       = st.sidebar.slider("Riesgo país",
-                               0.04 if rigi else 0.06,
-                               0.18, 0.08 if rigi else 0.10,
-                               step=0.01, format="%.0f%%")
-beta_u   = st.sidebar.slider("Beta desapalancada", 0.15, 0.60, 0.30, step=0.05)
+kd_anual_pct = st.sidebar.slider("Kd (costo deuda nominal EA)", 6.0, 20.0, 12.0,
+                               step=0.5, format="%.1f%%")
+kd_anual = kd_anual_pct / 100
+
+rf_pct   = st.sidebar.slider("Tasa libre de riesgo (RF)", 1.0, 6.0, 2.86,
+                               step=0.1, format="%.2f%%")
+rf = rf_pct / 100
+
+rp_default = 8.0 if rigi else 10.0
+rp_min     = 4.0 if rigi else 6.0
+rp_pct     = st.sidebar.slider("Riesgo país",
+                               rp_min, 18.0, rp_default,
+                               step=0.5, format="%.1f%%")
+rp = rp_pct / 100
+
+beta_u   = st.sidebar.slider("Beta desapalancada", 0.15, 0.60, 0.30, step=0.05,
+                              format="%.2f")
 
 st.sidebar.markdown("### CAPEX y OPEX")
 capex_total = st.sidebar.number_input(
@@ -99,8 +108,10 @@ capex_total = st.sidebar.number_input(
     value=848.65 if rigi else 898.02,
     step=10.0,
 )
-tasa_opex = st.sidebar.slider("OPEX total (% CAPEX EA)", 0.005, 0.04, 0.0163, step=0.001,
-                               format="%.2f%%")
+tasa_opex_pct = st.sidebar.slider("OPEX total (% CAPEX EA)", 0.5, 4.0, 1.63, step=0.1,
+                               format="%.2f%%",
+                               help="Porcentaje del CAPEX como OPEX anual")
+tasa_opex = tasa_opex_pct / 100
 
 st.sidebar.markdown("---")
 run_button = st.sidebar.button("▶ Ejecutar Modelo", type="primary", use_container_width=True)
