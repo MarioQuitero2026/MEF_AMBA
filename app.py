@@ -30,25 +30,178 @@ st.set_page_config(
 AZUL   = "#10069F"
 CYAN   = "#00B5E2"
 ROJO   = "#DA291C"
-GRIS   = "#F5F5F5"
+GRIS   = "#F0F2F6"
+GRIS_OSCURO = "#E4E7EF"
 
 st.markdown(f"""
 <style>
-    .main {{ background-color: white; }}
-    .sidebar .sidebar-content {{ background-color: {GRIS}; }}
+    /* ── Tipografía global IDOM: Arial ── */
+    html, body, [class*="css"] {{
+        font-family: Arial, sans-serif;
+    }}
+
+    /* ── Fondo principal ── */
+    .main .block-container {{
+        background-color: white;
+        padding-top: 1.5rem;
+    }}
+
+    /* ── Header superior: banda azul IDOM ── */
+    .idom-header {{
+        background: {AZUL};
+        padding: 14px 24px 12px 24px;
+        margin: -1.5rem -1rem 1.5rem -1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }}
+    .idom-header .idom-project {{
+        color: white;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }}
+    .idom-header .idom-sub {{
+        color: {CYAN};
+        font-size: 12px;
+        font-weight: 400;
+        margin-top: 2px;
+    }}
+    .idom-badge {{
+        background: {CYAN};
+        color: {AZUL};
+        font-weight: 700;
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+    }}
+    .idom-badge-off {{
+        background: {ROJO};
+        color: white;
+        font-weight: 700;
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 4px;
+    }}
+
+    /* ── Metric cards ── */
     .metric-card {{
         background: white;
         border-left: 4px solid {AZUL};
-        border-radius: 8px;
+        border-radius: 6px;
         padding: 12px 16px;
         margin: 4px 0;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        box-shadow: 0 1px 3px rgba(16,6,159,0.10);
     }}
-    .metric-card .label {{ font-size: 12px; color: #666; font-weight: 500; }}
-    .metric-card .value {{ font-size: 22px; color: {AZUL}; font-weight: 700; }}
-    .metric-card .delta {{ font-size: 12px; color: #888; }}
-    h1 {{ color: {AZUL}; }}
-    h2, h3 {{ color: {AZUL}; }}
+    .metric-card .label {{
+        font-size: 11px;
+        color: #555;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }}
+    .metric-card .value {{
+        font-size: 24px;
+        color: {AZUL};
+        font-weight: 700;
+        line-height: 1.2;
+        margin-top: 2px;
+    }}
+    .metric-card .delta {{
+        font-size: 11px;
+        color: #888;
+        margin-top: 2px;
+    }}
+    .metric-card-cyan {{
+        border-left-color: {CYAN};
+    }}
+    .metric-card-cyan .value {{
+        color: #007AAA;
+    }}
+    .metric-card-rojo {{
+        border-left-color: {ROJO};
+    }}
+    .metric-card-rojo .value {{
+        color: {ROJO};
+    }}
+
+    /* ── Tabs ── */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 2px;
+        background: {GRIS};
+        border-radius: 6px;
+        padding: 4px;
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        border-radius: 4px;
+        font-family: Arial, sans-serif;
+        font-weight: 600;
+        font-size: 13px;
+        color: #555;
+        padding: 6px 16px;
+    }}
+    .stTabs [aria-selected="true"] {{
+        background: {AZUL} !important;
+        color: white !important;
+    }}
+
+    /* ── Sidebar ── */
+    section[data-testid="stSidebar"] {{
+        background: {GRIS};
+        border-right: 2px solid {GRIS_OSCURO};
+    }}
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {{
+        color: {AZUL};
+        font-family: Arial, sans-serif;
+    }}
+
+    /* ── Section dividers ── */
+    .idom-section {{
+        border-left: 3px solid {CYAN};
+        padding-left: 10px;
+        margin: 16px 0 8px 0;
+        color: {AZUL};
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.3px;
+    }}
+
+    /* ── Slider accent color ── */
+    .stSlider [data-baseweb="slider"] {{
+        color: {AZUL};
+    }}
+
+    /* ── Botones ── */
+    .stButton > button {{
+        background-color: {AZUL};
+        color: white;
+        font-family: Arial, sans-serif;
+        font-weight: 600;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 20px;
+    }}
+    .stButton > button:hover {{
+        background-color: #0D0585;
+        color: white;
+    }}
+
+    /* ── Títulos ── */
+    h1, h2, h3 {{ color: {AZUL}; font-family: Arial, sans-serif; }}
+
+    /* ── Footer IDOM ── */
+    .idom-footer {{
+        border-top: 2px solid {AZUL};
+        padding: 10px 0 0 0;
+        margin-top: 24px;
+        color: #888;
+        font-size: 11px;
+        display: flex;
+        justify-content: space-between;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -65,9 +218,12 @@ def metric_card(label, value, delta=""):
 # ─────────────────────────────────────────────────────────────────────
 # SIDEBAR — Parámetros
 # ─────────────────────────────────────────────────────────────────────
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/IDOM_logo.svg/320px-IDOM_logo.svg.png",
-                 width=120)
-st.sidebar.title("⚙️ Parámetros del Modelo")
+st.sidebar.image("idom_logo.png", width=110)
+st.sidebar.markdown(
+    f"<div style='height:2px; background:{AZUL}; margin: 6px 0 14px 0; border-radius:1px'></div>",
+    unsafe_allow_html=True
+)
+st.sidebar.title("Parámetros del Modelo")
 
 st.sidebar.markdown("### Selectores de Escenario")
 rigi          = st.sidebar.toggle("CON RIGI",                    value=True)
@@ -151,17 +307,22 @@ def build_params() -> Params:
 # ─────────────────────────────────────────────────────────────────────
 # HEADER
 # ─────────────────────────────────────────────────────────────────────
-col_h1, col_h2 = st.columns([3, 1])
-with col_h1:
-    st.title("⚡ AMBA I — Modelo Económico Financiero")
-    st.caption("Concesión de Obra Pública · Transmisión Eléctrica 500/220/132 kV · Argentina")
-with col_h2:
-    escenario = "✅ CON RIGI" if rigi else "❌ SIN RIGI"
-    st.markdown(f"<br><span style='font-size:18px; color:{AZUL}; font-weight:700'>{escenario}</span>",
-                unsafe_allow_html=True)
-    st.caption(f"Deuda: {pct_deuda:.0%}  |  Kd: {kd_anual:.1%}")
-
-st.divider()
+badge_html = (f"<span class='idom-badge'>CON RIGI</span>" if rigi
+              else f"<span class='idom-badge-off'>SIN RIGI</span>")
+st.markdown(f"""
+<div class="idom-header">
+    <div>
+        <div class="idom-project">AMBA I — Modelo Económico Financiero</div>
+        <div class="idom-sub">Concesión de Obra Pública · Transmisión Eléctrica 500/220/132 kV · Argentina</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+        {badge_html}
+        <div style="color:{CYAN}; font-size:12px; text-align:right;">
+            Deuda: {pct_deuda:.0%} &nbsp;|&nbsp; Kd: {kd_anual:.1%}
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────
 # ESTADO DE SESIÓN
@@ -452,8 +613,11 @@ with tab5:
                        mime="text/csv")
 
 # ─────────────────────────────────────────────────────────────────────
-# FOOTER
+# FOOTER IDOM
 # ─────────────────────────────────────────────────────────────────────
-st.divider()
-st.caption("IDOM Consulting · Proyecto AMBA I · T4199-P001-T014 · "
-           "Motor Python v1.0 · Datos en USD constantes")
+st.markdown(f"""
+<div class="idom-footer">
+    <span>IDOM Consulting · Engineering · Architecture &nbsp;|&nbsp; Proyecto AMBA I · Contrato T4199-P001-T014</span>
+    <span>Motor Python v1.0 &nbsp;|&nbsp; USD constantes · <a href="https://www.idom.com" style="color:{CYAN}; text-decoration:none;">www.idom.com</a></span>
+</div>
+""", unsafe_allow_html=True)
