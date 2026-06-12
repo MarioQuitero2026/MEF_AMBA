@@ -194,9 +194,13 @@ res = st.session_state.res
 if res is None:
     st.stop()
 
-df_fin  = res["df_financiacion"]
-df_c    = res["df_cfdas"]
-df_cap  = res["df_capex"]
+df_fin  = res["df_financiacion"].copy()
+df_c    = res["df_cfdas"].copy()
+df_cap  = res["df_capex"].copy()
+
+# Forzar dtype datetime en columna bop (puede llegar como object en Streamlit Cloud)
+for _df in [df_fin, df_c, df_cap]:
+    _df["bop"] = pd.to_datetime(_df["bop"])
 
 # ─────────────────────────────────────────────────────────────────────
 # KPIs
