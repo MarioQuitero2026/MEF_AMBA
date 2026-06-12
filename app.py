@@ -607,16 +607,28 @@ with tab4:
         st.plotly_chart(fig8, use_container_width=True)
 
         # Tabla del barrido
+        def _fmt_saldo(v):
+            if v is None: return "—"
+            return "✓  0" if abs(v) < 1_000 else f"✗  {v/1e6:.2f}M"
+
+        def _fmt_vpn(v):
+            if v is None: return "—"
+            return "✓  ≈0" if abs(v) < 1_000 else f"✗  {v/1e6:.3f}M"
+
         st.dataframe(
-            df_b_valid.assign(
-                **{
-                    "% Deuda":     (df_b_valid["pct_deuda"] * 100).map("{:.0f}%".format),
-                    "RCOP (USD M)":(df_b_valid["rcop_vpn"] / 1e6).map("{:.1f}".format),
-                    "WACC":        (df_b_valid["wacc_anual"] * 100).map("{:.2f}%".format),
-                    "Ke":          (df_b_valid["ke_anual"] * 100).map("{:.2f}%".format),
-                    "Elegible":    df_b_valid["elegible"],
-                }
-            )[["% Deuda", "RCOP (USD M)", "WACC", "Ke", "Elegible"]],
+            df_b_valid.assign(**{
+                "% Deuda":       (df_b_valid["pct_deuda"] * 100).map("{:.0f}%".format),
+                "RCOP (USD M)":  (df_b_valid["rcop_vpn"] / 1e6).map("{:.1f}".format),
+                "WACC":          (df_b_valid["wacc_anual"] * 100).map("{:.2f}%".format),
+                "Ke":            (df_b_valid["ke_anual"] * 100).map("{:.2f}%".format),
+                "VPN FCFE":      df_b_valid["vpn_fcfe"].map(_fmt_vpn),
+                "Deuda T1 paga": df_b_valid["saldo_final_t1"].map(_fmt_saldo),
+                "Deuda T2 paga": df_b_valid["saldo_final_t2"].map(_fmt_saldo),
+                "Elegible":      df_b_valid["elegible"],
+            })[[
+                "% Deuda", "RCOP (USD M)", "WACC", "Ke",
+                "VPN FCFE", "Deuda T1 paga", "Deuda T2 paga", "Elegible"
+            ]],
             hide_index=True,
             use_container_width=True,
         )
