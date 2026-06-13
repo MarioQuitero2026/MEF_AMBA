@@ -136,11 +136,13 @@ def calcular_financiacion(
             saldo_t2[t] = saldo_prev + desembolso_t2[t]
 
     # DSCR sculpting T2
+    # El CFDAS disponible para T2 es el remanente después de cubrir el servicio T1
     for t in range(t_ini_oym_e2, t_fin_oym_e2 + 1):
         saldo_prev = saldo_t2[t - 1] if t > 0 else 0.0
         interes = saldo_prev * kd_m
         intereses_t2[t] = interes
-        servicio_max = cfdas[t] / dscr_obj if dscr_obj > 0 else 0
+        cfdas_disponible = max(cfdas[t] - servicio_t1[t], 0)
+        servicio_max = cfdas_disponible / dscr_obj if dscr_obj > 0 else 0
         amort = max(servicio_max - interes, 0)
         amort = min(amort, saldo_prev)
         amort_t2[t] = amort
@@ -203,6 +205,16 @@ def calcular_financiacion(
     df["dscr_t1"]           = np.where(servicio_t1 > 0, cfdas / servicio_t1, np.nan)
     df["dscr_t2"]           = np.where(servicio_t2 > 0, cfdas / servicio_t2, np.nan)
 
+    # FCFE mínimo en O&M operativo (solo períodos donde CFDAS > 0)
+    # Excluye períodos de construcción traslapada donde el CFDAS es negativo
+    # por el CAPEX de la siguiente etapa. El chequeo relevante es: cuando el
+    # proyecto genera caja operativa, ¿puede cubrir el servicio de deuda?
+    t_ini_oym = min(t_ini_oym_e1, t_ini_oym_e2) if mask_oym_e2.any() else t_ini_oym_e1
+    cfdas_oym = cfdas[t_ini_oym:]
+    fcfe_oym  = fcfe[t_ini_oym:]
+    mask_positivo = cfdas_oym > 0
+    fcfe_min_oym = float(np.min(fcfe_oym[mask_positivo])) if mask_positivo.any() else 0.0
+
     # Metadatos agregados
     df.attrs["vpn_fcfe"]        = vpn_fcfe
     df.attrs["vpn_fcff"]        = vpn_fcff
@@ -212,6 +224,7 @@ def calcular_financiacion(
     df.attrs["wacc_m"]          = wacc_m
     df.attrs["pct_deuda"]       = pct_deuda
     df.attrs["rcop_vpn"]        = rcop_vpn
+    df.attrs["fcfe_min_oym"]    = fcfe_min_oym
 
     return df
 
@@ -265,6 +278,7 @@ def optimizar_rcop(
         "vpn_fcff":       df_opt.attrs["vpn_fcff"],
         "saldo_final_t1": df_opt.attrs["saldo_final_t1"],
         "saldo_final_t2": df_opt.attrs["saldo_final_t2"],
+        "fcfe_min_oym":   df_opt.attrs["fcfe_min_oym"],
         "pct_deuda":      pct_deuda,
         "ke_m":           df_opt.attrs["ke_m"],
         "wacc_m":         df_opt.attrs["wacc_m"],
@@ -296,7 +310,8 @@ def barrido_rcop(
             wacc_anual = (1 + res["wacc_m"]) ** 12 - 1
             elegible = (abs(res["vpn_fcfe"]) < 1.0 and
                         abs(res["saldo_final_t1"]) < 1_000 and
-                        abs(res["saldo_final_t2"]) < 1_000)
+                        abs(res["saldo_final_t2"]) < 1_000 and
+                        res["fcfe_min_oym"] >= -5_000_000)
             resultados.append({
                 "pct_deuda":       pct_d,
                 "pct_equity":      1 - pct_d,
@@ -305,6 +320,7 @@ def barrido_rcop(
                 "vpn_fcff":        res["vpn_fcff"],
                 "saldo_final_t1":  res["saldo_final_t1"],
                 "saldo_final_t2":  res["saldo_final_t2"],
+                "fcfe_min_oym":    res["fcfe_min_oym"],
                 "ke_anual":        ke_anual,
                 "wacc_anual":      wacc_anual,
                 "elegible":        "Sí" if elegible else "No",
